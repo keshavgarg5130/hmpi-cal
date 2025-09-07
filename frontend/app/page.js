@@ -16,16 +16,33 @@ export default function Home() {
     manganese: "",
   });
 
+  const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const resultsRef = useRef(null); // 👈 reference for results section
+  const resultRef = useRef(null);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // Allow empty string or numeric values
+    if (value === "" || !isNaN(value)) {
+      setFormData({ ...formData, [name]: value });
+      setErrors({ ...errors, [name]: "" }); // clear error
+    } else {
+      setErrors({ ...errors, [name]: "Please enter a valid number" });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent submit if errors exist
+    const hasErrors = Object.values(errors).some((msg) => msg !== "");
+    if (hasErrors) {
+      alert("Please fix errors before submitting.");
+      return;
+    }
+
     setLoading(true);
 
     const data = {};
@@ -34,17 +51,20 @@ export default function Home() {
     });
 
     try {
-      const res = await fetch("http://localhost:3001/api/hmpi/calculate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heavyMetalConcentrations: data }),
-      });
+      const res = await fetch(
+        "https://hmpi-cal.onrender.com/api/hmpi/calculate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ heavyMetalConcentrations: data }),
+        }
+      );
       const json = await res.json();
       setResult(json);
 
-      // 👇 Scroll to results after state updates
+      // Scroll to results
       setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: "smooth" });
+        resultRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 200);
     } catch (err) {
       console.error("Error:", err);
@@ -53,10 +73,13 @@ export default function Home() {
     }
   };
 
+  const formatNumber = (num) =>
+    typeof num === "number" ? num.toFixed(2) : "N/A";
+
   return (
-    <div className="min-h-screen bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 flex flex-col items-center justify-start p-6">
-      <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-10 max-w-4xl w-full">
-        <h1 className="text-4xl font-extrabold text-center mb-8 bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-4xl w-full">
+        <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
           Heavy Metal Pollution Indices Calculator
         </h1>
 
@@ -66,55 +89,75 @@ export default function Home() {
         >
           {Object.keys(formData).map((metal) => (
             <div key={metal}>
-              <label className="block text-sm font-semibold text-gray-700 capitalize">
-                {metal} (mg)
-              </label>
-              <div className="mt-2 flex items-center rounded-xl border border-gray-300 bg-white shadow-sm focus-within:ring-2 focus-within:ring-pink-300">
+                <label className="block text-sm font-medium text-gray-700 capitalize mb-1">
+                  {metal}
+                </label>
+                <div className="relative">
                 <input
-                  type="number"
-                  step="0.0001"
-                  name={metal}
-                  value={formData[metal]}
-                  onChange={handleChange}
-                  className="w-full rounded-l-xl px-3 py-2 text-gray-800 focus:outline-none"
+                    type="text"
+                    name={metal}
+                    value={formData[metal]}
+                    onChange={handleChange}
+                    className={`w-full rounded-md border p-2 pr-12 shadow-sm focus:ring-2 text-black ${
+                    errors[metal]
+                    ? "border-red-500 focus:ring-red-200"
+                    : "border-gray-300 focus:ring-blue-200"
+                   }`}
                   placeholder={`Enter ${metal}`}
                 />
-                <span className="px-3 py-2 text-gray-500 text-sm">mg</span>
-              </div>
+
+                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                   mg
+                 </span>
             </div>
+  {errors[metal] && (
+    <p className="text-red-500 text-sm mt-1">{errors[metal]}</p>
+  )}
+</div>
+
           ))}
 
-          <div className="col-span-2 flex justify-center mt-6">
+          <div className="col-span-2 flex justify-center mt-4">
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-full shadow-lg hover:scale-105 transition transform"
+              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
             >
-              {loading ? "Calculating..." : "✨ Calculate ✨"}
+              {loading ? "Calculating..." : "Calculate"}
             </button>
           </div>
         </form>
 
         {result && (
           <div
-            ref={resultsRef} // 👈 attach the ref here
-            className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-100 border rounded-2xl shadow-inner"
+            ref={resultRef}
+            className="mt-10 p-6 bg-gradient-to-r from-green-50 to-green-100 border rounded-xl shadow-lg"
           >
-            <h2 className="text-2xl font-bold mb-4 text-indigo-800">Results:</h2>
-            <ul className="grid grid-cols-2 gap-3 text-gray-800 font-medium">
-              <li><b>HPI:</b> {result.HPI.toFixed(2)}</li>
-              <li><b>HEI:</b> {result.HEI.toFixed(2)}</li>
-              <li><b>MI:</b> {result.MI.toFixed(2)}</li>
-              <li><b>Cd:</b> {result.Cd.toFixed(2)}</li>
-              <li><b>Nemerow:</b> {result.Nemerow.toFixed(2)}</li>
-              <li className="col-span-2">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Results:</h2>
+            <ul className="space-y-2 text-gray-700">
+              <li>
+                <b>HPI:</b> {formatNumber(result.HPI)}
+              </li>
+              <li>
+                <b>HEI:</b> {formatNumber(result.HEI)}
+              </li>
+              <li>
+                <b>MI:</b> {formatNumber(result.MI)}
+              </li>
+              <li>
+                <b>Cd:</b> {formatNumber(result.Cd)}
+              </li>
+              <li>
+                <b>Nemerow:</b> {formatNumber(result.Nemerow)}
+              </li>
+              <li>
                 <b>Classification:</b>{" "}
                 <span
-                  className={`px-3 py-1 rounded-full text-white font-bold ${
+                  className={
                     result.classification === "Safe"
-                      ? "bg-green-500"
-                      : "bg-red-500"
-                  }`}
+                      ? "text-green-600 font-bold"
+                      : "text-red-600 font-bold"
+                  }
                 >
                   {result.classification}
                 </span>
